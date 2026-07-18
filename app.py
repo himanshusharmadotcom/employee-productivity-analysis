@@ -126,6 +126,13 @@ st.markdown(
         letter-spacing: 0.04em; margin-top: 1.1rem; margin-bottom: 0.3rem; }}
 
     div[data-baseweb="tag"] {{ background-color: {ACCENT} !important; }}
+
+    section[data-testid="stSidebar"] div[data-baseweb="select"] > div {{
+        border: 1px solid {BORDER}; border-radius: 10px;
+    }}
+    section[data-testid="stSidebar"] div[data-testid="stSlider"] {{
+        border: 1px solid {BORDER}; border-radius: 10px; padding: 12px 14px 4px;
+    }}
     </style>
     """,
     unsafe_allow_html=True,
