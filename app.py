@@ -1,3 +1,5 @@
+import datetime as dt
+
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -63,6 +65,18 @@ st.markdown(
     header[data-testid="stHeader"] {{ display: none !important; }}
     .stApp {{ background: {PAGE}; }}
     .block-container {{ padding-top: 1.5rem; padding-bottom: 2rem; max-width: 1300px; }}
+
+    .report-header {{
+        display: flex; justify-content: space-between; align-items: flex-end;
+        margin-bottom: 1.4rem;
+    }}
+    .report-title {{ font-size: 1.6rem; font-weight: 700; color: {INK_PRIMARY}; margin: 0; }}
+    .report-subtitle {{ font-size: 0.9rem; color: {INK_MUTED}; margin-top: 2px; }}
+    .report-meta {{
+        text-align: right; font-size: 0.82rem; color: {INK_MUTED};
+        background: {SURFACE}; border: 1px solid {BORDER}; border-radius: 999px;
+        padding: 6px 14px;
+    }}
 
     div[class*="st-key-card-"] {{
         background: {SURFACE}; border: 1px solid {BORDER}; border-radius: 18px;
@@ -196,6 +210,25 @@ fdf = df[mask]
 if fdf.empty:
     st.warning("No employees match the selected filters.")
     st.stop()
+
+# ============================================================
+# Header
+# ============================================================
+today = dt.date.today().strftime("%A, %B %d %Y")
+st.markdown(
+    f"""
+    <div class="report-header">
+        <div>
+            <div class="report-title">Employee Productivity Report</div>
+            <div class="report-subtitle">100,000 employees · Productivity Index blends Performance,
+            Projects-per-Hour, and Satisfaction</div>
+        </div>
+        <div class="report-meta">{today}<br><b>{len(fdf):,}</b> of {len(df):,} employees shown</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
 
 def badge(delta, higher_is_good=True):
     good = (delta >= 0) if higher_is_good else (delta <= 0)
