@@ -37,16 +37,19 @@ CHART_FONT = dict(family="system-ui, -apple-system, 'Segoe UI', sans-serif", col
 
 
 def style_fig(fig, title=None, height=360, showlegend=False):
-    fig.update_layout(
+    layout_kwargs = dict(
         font=CHART_FONT,
-        title=dict(text=title, font=dict(size=14, color=INK_PRIMARY)) if title else None,
         plot_bgcolor=SURFACE,
         paper_bgcolor=SURFACE,
         height=height,
         margin=dict(l=10, r=10, t=40 if title else 10, b=10),
         showlegend=showlegend,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0) if showlegend else None,
     )
+    if title:
+        layout_kwargs["title"] = dict(text=title, font=dict(size=14, color=INK_PRIMARY))
+    if showlegend:
+        layout_kwargs["legend"] = dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0)
+    fig.update_layout(**layout_kwargs)
     fig.update_xaxes(gridcolor=GRIDLINE, zeroline=False, showline=True, linecolor=GRIDLINE, color=INK_MUTED)
     fig.update_yaxes(gridcolor=GRIDLINE, zeroline=False, showline=False, color=INK_MUTED)
     return fig
@@ -58,7 +61,7 @@ def style_fig(fig, title=None, height=360, showlegend=False):
 st.markdown(
     f"""
     <style>
-    .stAppDeployButton, .stDeployButton {{ display: none !important; }}
+    .stAppDeployButton, .stDeployButton, [data-testid="stSkillsNudge"] {{ display: none !important; }}
     .stApp {{ background: {PAGE}; }}
     .block-container {{ padding-top: 1.5rem; padding-bottom: 2rem; max-width: 1300px; }}
 
@@ -74,7 +77,7 @@ st.markdown(
         padding: 6px 14px;
     }}
 
-    .card {{
+    div[class*="st-key-card-"] {{
         background: {SURFACE}; border: 1px solid {BORDER}; border-radius: 18px;
         padding: 20px 22px; box-shadow: 0 1px 2px rgba(11,11,11,0.04);
         margin-bottom: 1.1rem;
@@ -95,6 +98,7 @@ st.markdown(
     .kpi-plain {{ background: {SURFACE}; }}
     .kpi-label {{ font-size: 0.8rem; color: {INK_MUTED}; margin-bottom: 6px; }}
     .kpi-value {{ font-size: 1.7rem; font-weight: 700; color: {INK_PRIMARY}; line-height: 1.1; }}
+    .kpi-num {{ white-space: nowrap; }}
     .kpi-caption {{ font-size: 0.76rem; color: {INK_MUTED}; margin-top: 6px; }}
 
     .badge {{
@@ -249,7 +253,7 @@ with c1:
     st.markdown(
         f"""<div class="kpi-card kpi-hero">
             <div class="kpi-label">Avg Productivity Index</div>
-            <div class="kpi-value">{avg_prod:.3f} {badge(prod_delta)}</div>
+            <div class="kpi-value"><span class="kpi-num">{avg_prod:.3f}</span> {badge(prod_delta)}</div>
             <div class="kpi-caption">vs. company baseline {BASELINE['productivity']:.3f}</div>
         </div>""",
         unsafe_allow_html=True,
@@ -258,7 +262,7 @@ with c2:
     st.markdown(
         f"""<div class="kpi-card kpi-plain">
             <div class="kpi-label">Employees (filtered)</div>
-            <div class="kpi-value">{len(fdf):,}</div>
+            <div class="kpi-value"><span class="kpi-num">{len(fdf):,}</span></div>
             <div class="kpi-caption">{count_share:.1%} of total workforce</div>
         </div>""",
         unsafe_allow_html=True,
@@ -267,7 +271,7 @@ with c3:
     st.markdown(
         f"""<div class="kpi-card kpi-plain">
             <div class="kpi-label">Avg Performance Score</div>
-            <div class="kpi-value">{avg_perf:.2f} {badge(perf_delta)}</div>
+            <div class="kpi-value"><span class="kpi-num">{avg_perf:.2f}</span> {badge(perf_delta)}</div>
             <div class="kpi-caption">vs. company baseline {BASELINE['performance']:.2f}</div>
         </div>""",
         unsafe_allow_html=True,
@@ -276,7 +280,7 @@ with c4:
     st.markdown(
         f"""<div class="kpi-card kpi-plain">
             <div class="kpi-label">Resignation Rate</div>
-            <div class="kpi-value">{resign_rate:.1%} {badge(resign_delta, higher_is_good=False)}</div>
+            <div class="kpi-value"><span class="kpi-num">{resign_rate:.1%}</span> {badge(resign_delta, higher_is_good=False)}</div>
             <div class="kpi-caption">vs. company baseline {BASELINE['resignation']:.1%}</div>
         </div>""",
         unsafe_allow_html=True,
@@ -288,158 +292,153 @@ with c4:
 left, right = st.columns([2, 1])
 
 with left:
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="card-title">Productivity Index by Department</div>', unsafe_allow_html=True)
-    st.markdown('<div class="card-subtitle">Sorted high to low · dashed line marks the overall average</div>', unsafe_allow_html=True)
+    with st.container(key="card-dept-chart"):
+        st.markdown('<div class="card-title">Productivity Index by Department</div>', unsafe_allow_html=True)
+        st.markdown('<div class="card-subtitle">Sorted high to low · dashed line marks the overall average</div>', unsafe_allow_html=True)
 
-    benchmarks = (
-        fdf.groupby("Department")[["Performance_Score", "Projects_per_Hour", "Productivity_Index"]]
-        .mean()
-        .sort_values("Productivity_Index", ascending=False)
-        .reset_index()
-    )
-    fig = px.bar(
-        benchmarks, x="Department", y="Productivity_Index",
-        color="Productivity_Index", color_continuous_scale=SEQ_BLUE,
-    )
-    fig.update_traces(marker_line_width=0, width=0.6)
-    fig.add_hline(y=avg_prod, line_dash="dash", line_color=INK_MUTED, line_width=1.5)
-    fig.update_layout(coloraxis_showscale=False)
-    fig.update_yaxes(range=[0, max(1.0, benchmarks["Productivity_Index"].max() * 1.15)])
-    st.plotly_chart(style_fig(fig, height=340), width="stretch")
-    st.markdown("</div>", unsafe_allow_html=True)
+        benchmarks = (
+            fdf.groupby("Department")[["Performance_Score", "Projects_per_Hour", "Productivity_Index"]]
+            .mean()
+            .sort_values("Productivity_Index", ascending=False)
+            .reset_index()
+        )
+        fig = px.bar(
+            benchmarks, x="Department", y="Productivity_Index",
+            color="Productivity_Index", color_continuous_scale=SEQ_BLUE,
+        )
+        fig.update_traces(marker_line_width=0, width=0.6)
+        fig.add_hline(y=avg_prod, line_dash="dash", line_color=INK_MUTED, line_width=1.5)
+        fig.update_layout(coloraxis_showscale=False)
+        fig.update_yaxes(range=[0, max(1.0, benchmarks["Productivity_Index"].max() * 1.15)])
+        st.plotly_chart(style_fig(fig, height=340), width="stretch")
 
 with right:
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="card-title">Productivity at a Glance</div>', unsafe_allow_html=True)
-    st.markdown('<div class="card-subtitle">Filtered average vs. best department</div>', unsafe_allow_html=True)
+    with st.container(key="card-glance"):
+        st.markdown('<div class="card-title">Productivity at a Glance</div>', unsafe_allow_html=True)
+        st.markdown('<div class="card-subtitle">Filtered average vs. best department</div>', unsafe_allow_html=True)
 
-    best_dept = benchmarks.iloc[0]
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number+delta",
-        value=avg_prod,
-        number={"valueformat": ".3f", "font": {"size": 30, "color": INK_PRIMARY}},
-        delta={"reference": BASELINE["productivity"], "valueformat": ".3f",
-               "increasing": {"color": GOOD_TEXT}, "decreasing": {"color": CRITICAL}},
-        gauge={
-            "axis": {"range": [0, 1], "tickcolor": INK_MUTED, "tickfont": {"size": 9}},
-            "bar": {"color": ACCENT, "thickness": 0.35},
-            "bgcolor": GRIDLINE,
-            "borderwidth": 0,
-            "threshold": {
-                "line": {"color": CAT["blue"], "width": 3},
-                "thickness": 0.85,
-                "value": best_dept["Productivity_Index"],
+        best_dept = benchmarks.iloc[0]
+        fig = go.Figure(go.Indicator(
+            mode="gauge+number+delta",
+            value=avg_prod,
+            number={"valueformat": ".3f", "font": {"color": INK_PRIMARY}},
+            delta={"reference": BASELINE["productivity"], "valueformat": ".3f",
+                   "increasing": {"color": GOOD_TEXT}, "decreasing": {"color": CRITICAL}},
+            gauge={
+                "axis": {"range": [0, 1], "tickcolor": INK_MUTED, "tickfont": {"size": 9}},
+                "bar": {"color": ACCENT, "thickness": 0.35},
+                "bgcolor": GRIDLINE,
+                "borderwidth": 0,
+                "threshold": {
+                    "line": {"color": CAT["blue"], "width": 3},
+                    "thickness": 0.85,
+                    "value": best_dept["Productivity_Index"],
+                },
             },
-        },
-    ))
-    fig.update_layout(height=200, margin=dict(l=20, r=20, t=10, b=0), paper_bgcolor=SURFACE, font=CHART_FONT)
-    st.plotly_chart(fig, width="stretch")
-    st.caption(f"Blue marker = top department ({best_dept['Department']})")
+        ))
+        fig.update_layout(height=200, margin=dict(l=20, r=20, t=10, b=0), paper_bgcolor=SURFACE, font=CHART_FONT)
+        st.plotly_chart(fig, width="stretch")
+        st.caption(f"Blue marker = top department ({best_dept['Department']})")
 
-    st.markdown('<div class="card-subtitle" style="margin-top:10px;">Top departments</div>', unsafe_allow_html=True)
-    rows_html = ""
-    for i, row in benchmarks.head(5).iterrows():
-        dot = CAT_LIST[i % len(CAT_LIST)]
-        d = (row["Productivity_Index"] - BASELINE["productivity"]) / BASELINE["productivity"]
-        rows_html += f"""<div class="rank-row">
-            <span><span class="rank-dot" style="background:{dot};"></span>
-            <span class="rank-name">{row['Department']}</span></span>
-            <span class="rank-value">{row['Productivity_Index']:.3f} {badge(d)}</span>
-        </div>"""
-    st.markdown(rows_html, unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown('<div class="card-subtitle" style="margin-top:10px;">Top departments</div>', unsafe_allow_html=True)
+        rows_html = ""
+        for i, row in benchmarks.head(5).iterrows():
+            dot = CAT_LIST[i % len(CAT_LIST)]
+            d = (row["Productivity_Index"] - BASELINE["productivity"]) / BASELINE["productivity"]
+            rows_html += f"""<div class="rank-row">
+                <span><span class="rank-dot" style="background:{dot};"></span>
+                <span class="rank-name">{row['Department']}</span></span>
+                <span class="rank-value">{row['Productivity_Index']:.3f} {badge(d)}</span>
+            </div>"""
+        st.markdown(rows_html, unsafe_allow_html=True)
 
 # ============================================================
 # Correlation heatmap
 # ============================================================
-st.markdown('<div class="card">', unsafe_allow_html=True)
-st.markdown('<div class="card-title">Correlation Heatmap</div>', unsafe_allow_html=True)
-st.markdown('<div class="card-subtitle">Blue = negative, red = positive, gray = no relationship</div>', unsafe_allow_html=True)
-corr_cols = [
-    "Age", "Years_At_Company", "Performance_Score", "Work_Hours_Per_Week",
-    "Projects_Handled", "Overtime_Hours", "Sick_Days", "Remote_Work_Frequency",
-    "Training_Hours", "Promotions", "Employee_Satisfaction_Score", "Productivity_Index",
-]
-corr = fdf[corr_cols].corr()
-fig = px.imshow(corr, text_auto=".2f", color_continuous_scale=DIVERGING, zmin=-1, zmax=1, aspect="auto")
-fig.update_traces(textfont_size=10)
-fig.update_layout(coloraxis_showscale=False)
-st.plotly_chart(style_fig(fig, height=560), width="stretch")
-st.markdown("</div>", unsafe_allow_html=True)
+with st.container(key="card-heatmap"):
+    st.markdown('<div class="card-title">Correlation Heatmap</div>', unsafe_allow_html=True)
+    st.markdown('<div class="card-subtitle">Blue = negative, red = positive, gray = no relationship</div>', unsafe_allow_html=True)
+    corr_cols = [
+        "Age", "Years_At_Company", "Performance_Score", "Work_Hours_Per_Week",
+        "Projects_Handled", "Overtime_Hours", "Sick_Days", "Remote_Work_Frequency",
+        "Training_Hours", "Promotions", "Employee_Satisfaction_Score", "Productivity_Index",
+    ]
+    corr = fdf[corr_cols].corr()
+    fig = px.imshow(corr, text_auto=".2f", color_continuous_scale=DIVERGING, zmin=-1, zmax=1, aspect="auto")
+    fig.update_traces(textfont_size=10)
+    fig.update_layout(coloraxis_showscale=False)
+    st.plotly_chart(style_fig(fig, height=560), width="stretch")
 
 # ============================================================
 # Factor explorer
 # ============================================================
-st.markdown('<div class="card">', unsafe_allow_html=True)
-st.markdown('<div class="card-title">Factor vs Productivity</div>', unsafe_allow_html=True)
-tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    ["Training Hours", "Remote Work Frequency", "Overtime", "Tenure", "Education Level"]
-)
-
-with tab1:
-    sample = fdf.sample(min(3000, len(fdf)), random_state=1)
-    fig = px.scatter(sample, x="Training_Hours", y="Productivity_Index", trendline="ols",
-                      opacity=0.35, trendline_color_override=ACCENT,
-                      color_discrete_sequence=[CAT["blue"]])
-    st.plotly_chart(style_fig(fig, height=380), width="stretch")
-
-with tab2:
-    fig = px.box(fdf, x="Remote_Work_Frequency", y="Productivity_Index", color_discrete_sequence=[CAT["blue"]])
-    st.plotly_chart(style_fig(fig, height=380), width="stretch")
-
-with tab3:
-    sample = fdf.sample(min(3000, len(fdf)), random_state=1)
-    c1, c2 = st.columns(2)
-    with c1:
-        fig = px.scatter(sample, x="Overtime_Hours", y="Employee_Satisfaction_Score", opacity=0.35,
-                          color_discrete_sequence=[CAT["blue"]])
-        st.plotly_chart(style_fig(fig, title="Overtime vs Satisfaction", height=340), width="stretch")
-    with c2:
-        fig = px.scatter(sample, x="Overtime_Hours", y="Productivity_Index", opacity=0.35,
-                          color_discrete_sequence=[CAT["blue"]])
-        st.plotly_chart(style_fig(fig, title="Overtime vs Productivity", height=340), width="stretch")
-
-with tab4:
-    tenure_avg = fdf.groupby("Years_At_Company")["Productivity_Index"].mean().reset_index()
-    fig = px.line(tenure_avg, x="Years_At_Company", y="Productivity_Index", markers=True,
-                   color_discrete_sequence=[CAT["blue"]])
-    fig.update_traces(line_width=2, marker_size=6)
-    st.plotly_chart(style_fig(fig, height=380), width="stretch")
-
-with tab5:
-    order = fdf.groupby("Education_Level")["Productivity_Index"].mean().sort_values(ascending=False).index
-    fig = px.bar(
-        fdf.groupby("Education_Level")["Productivity_Index"].mean().reindex(order).reset_index(),
-        x="Education_Level", y="Productivity_Index", color_discrete_sequence=[CAT["blue"]],
+with st.container(key="card-factor"):
+    st.markdown('<div class="card-title">Factor vs Productivity</div>', unsafe_allow_html=True)
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(
+        ["Training Hours", "Remote Work Frequency", "Overtime", "Tenure", "Education Level"]
     )
-    fig.update_traces(marker_line_width=0, width=0.55)
-    st.plotly_chart(style_fig(fig, height=380), width="stretch")
-st.markdown("</div>", unsafe_allow_html=True)
+
+    with tab1:
+        sample = fdf.sample(min(3000, len(fdf)), random_state=1)
+        fig = px.scatter(sample, x="Training_Hours", y="Productivity_Index", trendline="ols",
+                          opacity=0.35, trendline_color_override=ACCENT,
+                          color_discrete_sequence=[CAT["blue"]])
+        st.plotly_chart(style_fig(fig, height=380), width="stretch")
+
+    with tab2:
+        fig = px.box(fdf, x="Remote_Work_Frequency", y="Productivity_Index", color_discrete_sequence=[CAT["blue"]])
+        st.plotly_chart(style_fig(fig, height=380), width="stretch")
+
+    with tab3:
+        sample = fdf.sample(min(3000, len(fdf)), random_state=1)
+        c1, c2 = st.columns(2)
+        with c1:
+            fig = px.scatter(sample, x="Overtime_Hours", y="Employee_Satisfaction_Score", opacity=0.35,
+                              color_discrete_sequence=[CAT["blue"]])
+            st.plotly_chart(style_fig(fig, title="Overtime vs Satisfaction", height=340), width="stretch")
+        with c2:
+            fig = px.scatter(sample, x="Overtime_Hours", y="Productivity_Index", opacity=0.35,
+                              color_discrete_sequence=[CAT["blue"]])
+            st.plotly_chart(style_fig(fig, title="Overtime vs Productivity", height=340), width="stretch")
+
+    with tab4:
+        tenure_avg = fdf.groupby("Years_At_Company")["Productivity_Index"].mean().reset_index()
+        fig = px.line(tenure_avg, x="Years_At_Company", y="Productivity_Index", markers=True,
+                       color_discrete_sequence=[CAT["blue"]])
+        fig.update_traces(line_width=2, marker_size=6)
+        st.plotly_chart(style_fig(fig, height=380), width="stretch")
+
+    with tab5:
+        order = fdf.groupby("Education_Level")["Productivity_Index"].mean().sort_values(ascending=False).index
+        fig = px.bar(
+            fdf.groupby("Education_Level")["Productivity_Index"].mean().reindex(order).reset_index(),
+            x="Education_Level", y="Productivity_Index", color_discrete_sequence=[CAT["blue"]],
+        )
+        fig.update_traces(marker_line_width=0, width=0.55)
+        st.plotly_chart(style_fig(fig, height=380), width="stretch")
 
 # ============================================================
 # Resignation comparison
 # ============================================================
-st.markdown('<div class="card">', unsafe_allow_html=True)
-st.markdown('<div class="card-title">Resigned vs Active Employees</div>', unsafe_allow_html=True)
-st.markdown('<div class="card-subtitle">Average Productivity Index by employment status</div>', unsafe_allow_html=True)
-resign_avg = (
-    fdf.groupby("Resigned")["Productivity_Index"].mean().rename({False: "Active", True: "Resigned"}).reset_index()
-)
-resign_avg.columns = ["Status", "Productivity_Index"]
-fig = px.bar(resign_avg, x="Status", y="Productivity_Index", color_discrete_sequence=[CAT["blue"]])
-fig.update_traces(marker_line_width=0, width=0.4)
-fig.update_yaxes(range=[0, 1])
-st.plotly_chart(style_fig(fig, height=280), width="stretch")
-st.markdown("</div>", unsafe_allow_html=True)
+with st.container(key="card-resign"):
+    st.markdown('<div class="card-title">Resigned vs Active Employees</div>', unsafe_allow_html=True)
+    st.markdown('<div class="card-subtitle">Average Productivity Index by employment status</div>', unsafe_allow_html=True)
+    resign_avg = (
+        fdf.groupby("Resigned")["Productivity_Index"].mean().rename({False: "Active", True: "Resigned"}).reset_index()
+    )
+    resign_avg.columns = ["Status", "Productivity_Index"]
+    fig = px.bar(resign_avg, x="Status", y="Productivity_Index", color_discrete_sequence=[CAT["blue"]])
+    fig.update_traces(marker_line_width=0, width=0.4)
+    fig.update_yaxes(range=[0, 1])
+    st.plotly_chart(style_fig(fig, height=280), width="stretch")
 
 # ============================================================
 # Insights
 # ============================================================
-st.markdown('<div class="card">', unsafe_allow_html=True)
-st.markdown('<div class="card-title">Key Findings & Recommendations</div>', unsafe_allow_html=True)
-st.markdown(
-    """
+with st.container(key="card-insights"):
+    st.markdown('<div class="card-title">Key Findings & Recommendations</div>', unsafe_allow_html=True)
+    st.markdown(
+        """
 1. **No single common HR factor drives productivity in this dataset.** Correlations between Productivity Index and
    Training Hours, Remote Work Frequency, Overtime Hours, Age, Tenure, Sick Days, Promotions, Education Level,
    Job Title, and Gender are all effectively zero.
@@ -453,5 +452,4 @@ st.markdown(
 data (project complexity, manager ratings, team dynamics); and benchmark departments sparingly given the
 negligible spread.
 """
-)
-st.markdown("</div>", unsafe_allow_html=True)
+    )
