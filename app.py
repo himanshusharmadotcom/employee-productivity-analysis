@@ -60,6 +60,7 @@ st.markdown(
     f"""
     <style>
     .stAppDeployButton, .stDeployButton, [data-testid="stSkillsNudge"] {{ display: none !important; }}
+    header[data-testid="stHeader"] {{ display: none !important; }}
     .stApp {{ background: {PAGE}; }}
     .block-container {{ padding-top: 1.5rem; padding-bottom: 2rem; max-width: 1300px; }}
 
